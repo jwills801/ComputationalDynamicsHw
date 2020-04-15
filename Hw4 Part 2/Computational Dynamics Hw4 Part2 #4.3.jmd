@@ -1,0 +1,106 @@
+---
+title: 4.3 Simplified car model
+author: Jackson Wills
+date: March 6th, 2020
+---
+```julia
+using SymPy
+@syms k1 k2 c1 c2 L₁ L₂ t m g J z₁ z₂ z₃ z₄ u h₀ l1₀ l2₀ theta₀ y₀
+theta = SymFunction("theta")(t)
+y = SymFunction("y")(t)
+thetashift = SymFunction("thetashift")(t)
+yshift = SymFunction("yshift")(t)
+```
+
+l1₀ and l2₀ are the undeformed lengths of the two springs
+h₀ is the hight of the reference line
+theta₀ and y₀ are the equilibrium points
+
+```julia
+y₁ = -L₁*sin(theta) + y
+ydot₁ = diff(y₁,t)
+y₂ = L₂*sin(theta) + y
+ydot₂ = diff(y₂,t)
+```
+
+```julia
+F_eqn = k1*(y₁+h₀-l1₀) + c1*ydot₁ + k2*(y₂+h₀-l2₀) + c2*ydot₂ + m*diff(y,t,t) + m*g
+```
+
+```julia
+M_eqn = L₁*cos(theta)*(k1*(y₁+h₀-l1₀) + c1*ydot₁) - L₂*cos(theta)*(k2*(y₂+h₀-l2₀) + c2*ydot₂) - J*diff(theta,t,t)
+```
+
+```julia
+# Kinetic Energy
+T = 1//2*m*diff(y,t)^2 + 1//2*J*diff(theta,t)^2
+```
+
+```julia
+# Potential Energy
+V = m*g*y + 1//2*k1*(y₁+h₀-l1₀)^2 + 1//2*k2*(y₂+h₀-l2₀)^2
+```
+
+```julia
+# Dissipation Term
+D = 1//2*c1*(diff(y₁,t))^2 + 1//2*c2*(diff(y₂,t))^2
+```
+
+```julia
+L = T - V
+L_eqn1 = diff(diff(L,diff(theta,t)),t) - diff(L,theta) + diff(D,diff(theta,t))
+```
+
+```julia
+L_eqn2 = diff(diff(L,diff(y,t)),t) - diff(L,y) + diff(D,diff(y,t)) |> simplify
+```
+
+```julia
+M_eqn + L_eqn1 |> simplify
+```
+
+cordinate shift!
+
+```julia
+AllDotsGoToZero = Dict(diff(theta,t,t)=>0,diff(theta,t)=>0,diff(y,t,t)=>0,diff(y,t)=>0)
+Equil_F = F_eqn |> subs(AllDotsGoToZero) |> subs(y=>y₀,theta=>theta₀)
+```
+
+```julia
+Equil_M = M_eqn |> subs(AllDotsGoToZero) |> subs(y=>y₀,theta=>theta₀)
+```
+
+```julia
+horiz_Equil = [(Equil_F |> subs.(theta₀=>0)), (Equil_M|> subs.(theta₀=>0))]
+```
+
+```julia
+Linear_Rule = Dict(z₁=>theta , z₂=>y , z₃=>diff(theta,t), z₄=>diff(y,t))
+```
+
+```julia
+z = [z₁; z₂; z₃; z₄].subs(Linear_Rule)
+EOM = solve([F_eqn,M_eqn],[diff(y,t,t),diff(theta,t,t)])
+zdot = diff.(z)
+Reverse_Linear_Rule = Dict(theta=>z₁ , y=>z₂ , diff(theta,t)=>z₃, diff(y,t)=>z₄)
+zdot = zdot.subs(EOM).subs(Reverse_Linear_Rule)
+```
+
+```julia
+A = fill(k1,(4,4))
+    for i=1:4
+        A[i,1] = diff(zdot[i],z₁)
+        A[i,2] = diff(zdot[i],z₂)
+        A[i,3] = diff(zdot[i],z₃)
+        A[i,4] = diff(zdot[i],z₄)
+    end
+A
+```
+
+```julia
+B = fill(k1,(4,1))
+    for i = 1:4
+        B[i] = diff(zdot[i],u)
+    end
+B
+```

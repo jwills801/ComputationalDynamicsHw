@@ -1,0 +1,50 @@
+---
+title: 4.7 Rotating pendulum of doom
+---
+I think this problem is different from the furuta pendulum because:
+1. There is no mass spoken of for the horizontal arm.
+2. There is no moment of inertia for the second arm, and instead there is a spring.
+3. I don't think I should be using Rotational matrices
+# Define Energy
+## Kinetic Energy of Arm 1
+```julia
+using SymPy
+@vars J m L0 t g k d
+theta = SymFunction("theta")(t)
+Omega = SymFunction("Omega")(t)
+L = SymFunction("L")(t)
+Torque = SymFunction("Torque")(t)
+T1 = 1//2*J*Omega^2
+```
+
+## Potential Engergy of Arm 1
+```julia
+V1 = 0;
+```
+## Kinetic Energy of Arm 2
+The Kinetic Energy of Arm 2 is tough. The first term is rotational energy, the second term is the translational energy in the direction of the spring. The last term I am not sure about. I think there needs to be translational energy in the y-z plane (This needs to account for the fact that the coordinates themselves are rotating).
+
+
+```julia
+v = Omega*d*sin(theta) + Omega*d*cos(theta) + diff(theta,t)*L - Omega*L*sin(theta)
+I_theta = 1//2*m*L^2
+T2 = 1//2*I_theta*diff(theta,t)^2 + 1//2*m*diff(L,t)^2 + 1//2*m*v
+```
+## Potential Energy of Arm 2
+```julia
+V2 = m*g*L*(1-cos(theta)) + 1//2*k*(L-L0)^2
+```
+---
+# Get Equations of Motion via Lagrange
+```julia
+T = T1 + T2
+V = V1 + V2
+Langr = T-V
+L_eqn1 = diff(diff(Langr,diff(theta)),t) - diff(Langr,theta)
+```
+```julia
+L_eqn2 = Torque - (diff(diff(Langr,diff(Omega)),t) - diff(Langr,Omega))
+```
+```julia
+L_eqn1 = diff(diff(Langr,diff(L)),t) - diff(Langr,L)
+```

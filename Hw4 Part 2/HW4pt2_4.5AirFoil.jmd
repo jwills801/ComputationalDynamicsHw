@@ -1,0 +1,50 @@
+---
+title: Computational Dynamics Homework4 Part2 4.5 Airfoil
+---
+# The Airfoil
+## Lagrange's Equations
+
+First, define the Kinetic Energy
+```julia
+using SymPy
+@vars kt k J t m p₁ p₂
+theta = SymFunction("theta")(t)
+y = SymFunction("y")(t)
+T = 1//2*m*diff(y,t)^2 + 1//2*J*diff(theta,t)^2
+```
+---
+The potential energy
+```julia
+V = 1//2*kt*theta^2 + 1//2*k*y^2
+```
+---
+Define the Langrangian
+```julia
+L = T-V
+```
+---
+Get equations of motion
+```julia
+eqn1 = diff(diff(L,diff(theta,t)),t) -diff(L,theta)
+```
+```julia
+eqn2 = diff(diff(L,diff(y,t)),t) -diff(L,y)
+```
+## Hamilton's Equations
+Get generalized momenta
+```julia
+zero1 = diff(L,diff(theta,t)) - p₁
+zero2 = diff(L,diff(y,t)) - p₂
+rule₁ = solve([zero1,zero2],[diff(theta,t),diff(y,t)])
+```
+But the equations of motion do not have any momentum dependence.
+---
+Build the Hamiltonian and get equations of motion
+```julia
+H = T + V
+H = H.subs(rule₁)
+H_eqn₁ = diff(diff(L,diff(theta,t)),t) + diff(H,theta)
+```
+```julia
+H_eqn₂ = diff(diff(L,diff(y,t)),t) + diff(H,y)
+```

@@ -1,0 +1,457 @@
+---
+title: Computational Dynamics HW 4
+author: Jackson Wills
+date: 28th February 2020
+---
+# Building equations of motion
+## Determine kinetic energy, potential energy, and dissipation function of the system.
+
+```julia; eval=true
+using SymPy
+using Plots
+@vars t f m1 m2 k1 k2 c1 c2 z1 z2 z3 z4 u
+x1 = SymFunction("x1")(t)
+x2 = SymFunction("x2")(t)
+xdot1 = SymFunction("xdot1")(t)
+xddot1 = SymFunction("xddot1")(t)
+xdot2 = SymFunction("xdot2")(t)
+xddot2 = SymFunction("xddot2")(t)
+diff(x1,t)
+diff(x1,t,t)
+diff(diff(x1,t),t);
+```
+
+defining system
+
+```julia
+q = [x1;x2]
+```
+
+```julia
+Q = [0;f]
+```
+
+### Kinetic Energy
+```julia
+T = 1//2*m1*(diff(x1,t))^2 + 1//2*m2*(diff(x2,t))^2 |> subs(diff(x1,t),xdot1) |> subs(diff(x2,t),xdot2)
+```
+### Potential Engergy
+```julia
+V = 1//2*k1*x1^2 + 1//2*k2*(x2-x1)^2
+```
+### Dissipation Functon
+```julia
+D = 1//2*c1*(diff(x1,t))^2 + 1//2*c2*(diff(x2,t)-diff(x1,t))^2 |> subs(diff(x1,t),xdot1) |> subs(diff(x2,t),xdot2)
+```
+## Lagrange's Equation to construct the equations of motion.
+```julia
+L = T-V
+
+Q1 = diff(diff(L,xdot1),t) - diff(L,x1) + diff(D,xdot1)|> subs(diff(xdot1,t),xddot1) |> subs(diff(xdot2,t),xddot2)
+Q2 = diff(diff(L,xdot2),t) - diff(L,x2) + diff(D,xdot2) |> subs(diff(xdot1,t),xddot1)|> subs(diff(xdot2,t),xddot2)
+eqn1 = Q[1] - Q1 #equal to zero
+```
+```julia
+eqn2 = Q[2] - Q2 #equal to zero
+```
+
+
+## Hamilton’s equation to construct the equations of motion
+```julia
+P1 = diff(L,xdot1)
+```
+```julia
+P2 = diff(L,xdot2)
+```
+```julia
+@vars p1 p2
+zero1 = P1 - p1
+zero2 = P2 - p2
+sol = solve( [zero1,zero2] , [xdot1,xdot2])
+```
+```julia
+Ham = T + V |> subs(sol)
+```
+```julia
+Qdamping1 = -diff(D,xdot1) |> subs(sol)
+Qdamping2 = -diff(D,xdot2) |> subs(sol)
+
+
+reversesol = solve( [zero1,zero2] , [p1,p2])
+
+pdot1 = -diff(Ham,x1)+Qdamping1 + Q[1] |> subs(reversesol)
+```
+```julia
+pdot2 = -diff(Ham,x2)+Qdamping2 + Q[2] |> subs(reversesol)
+```
+pdot1 = m1 * xddot1 and pdot2 = m2 * xddot2 so the expressions for pdot1 and pdot2 are the equations of motion
+---
+# Control
+## State Space Representation of System.
+z = x - x0
+
+
+u = f - f0
+
+
+z = [x1; x2; xdot1; xdot2]
+
+
+u = [0;f]
+
+
+```julia
+rule = Dict(x1=>z1,x2=>z2,xdot1=>z3,xdot2=>z4,f=>u)
+zdot = [xdot1;xdot2;pdot1/m1;pdot2/m2]
+zdot = zdot.subs(reversesol)
+zdot = zdot.subs(rule)
+```
+
+
+
+
+---
+now I'll plug in values and get the A Matrix
+
+
+
+
+
+```julia
+values = Dict(m1=>1,m2=>1,k1=>20,k2=>10,c1=>.4,c2=>.2)
+A = fill(exp(xddot2^xddot1),(4,4))
+let A = A
+    for i = 1:4
+        A[i,1] = diff(zdot[i],z1)
+        A[i,2] = diff(zdot[i],z2)
+        A[i,3] = diff(zdot[i],z3)
+        A[i,4] = diff(zdot[i],z4)
+    end
+    return A
+end
+A = A.subs(values)
+afloat = fill(NaN,(size(A,1),size(A,2)))
+A = oftype(afloat,A)
+```
+
+
+---
+Now for the B Matrix
+
+
+
+```julia
+B = fill(exp(xddot2^xddot1),(4,1))
+let B = B
+    for i = 1:4
+        B[i,1] = diff(zdot[i],u)
+    end
+    return B
+end
+B = B.subs(values)
+bfloat = fill(NaN,(size(B,1),size(B,2)))
+B = oftype(bfloat,B)
+```
+```julia
+C = [0 1 0 0.]
+D = [0.];
+```
+## Determine if the system is controllable and observable
+### Controlability
+
+```julia
+Cm = hcat(B,A*B,A^2*B,A^3*B)
+Om = vcat(C,C*A,C*A^2,C*A^3)
+
+import LinearAlgebra
+check1 = LinearAlgebra.det(Cm) #not zero so full rank
+```
+```julia
+(blah1,check2,blah2) = LinearAlgebra.svd(Cm)
+    check2 # 4 non zero singular values, so rank=4
+```
+```julia
+check3 = LinearAlgebra.eigvals(Cm) # no zero eigenvalues, so full rank
+```
+```julia
+check4 = LinearAlgebra.rank(Cm) # rank = 4, so full rank
+```
+### Observability
+```julia
+check5 = LinearAlgebra.det(Om) # not zero so full rank
+```
+```julia
+(blah3,check6,blah4) = LinearAlgebra.svd(Om)
+    check2 # 4 non zero singular values, so rank=4
+```
+
+```julia
+check7 = LinearAlgebra.eigvals(Om) # no zero eigenvalues, so full rank
+```
+```julia
+check8 = LinearAlgebra.rank(Om) # rank = 4, so full rank
+```
+
+
+# Make A Controller
+## This time using Ackerman's Formula
+```julia
+import Polynomials
+OS = 5/100
+Ts = .25
+zeta = sqrt(log(OS)^2/(pi^2+log(OS)^2))
+omega = 4/Ts/zeta
+Ts2 = 5*Ts
+omega2 = 4/Ts2/zeta
+# first 2 roots
+s1 = -zeta*omega+1im*omega*sqrt(1 - zeta^2)
+```
+```julia
+#second 2 roots
+s2 = -zeta*omega2+1im*omega2*sqrt(1 - zeta^2)
+```
+```julia
+p1 = Polynomials.poly([s1, conj(s1), s2, conj(s2)  ])
+Lambda = zeros(4,4)
+for i = 0:4
+        global Lambda += p1.a[i+1]*A^i
+end
+Lambda = real(Lambda)
+
+e_c = hcat(B, A*B, A^2*B, A^3*B)
+K = (e_c\Lambda)[end,:]
+```
+check that the placement of the poles is where I wanted them
+```julia
+LinearAlgebra.eigvals(A - B*K')
+```
+That is what I wanted! Now I'll test the controller
+```julia
+function ode2MassSprings(dz,z,p,t)
+    # p = [M1,M2,K1,K2,C1,C2]
+
+    x0 = [0 0 0 0.]
+    r(t) = 1
+    x = z - x0
+    U = r(t) - LinearAlgebra.dot(K,x)
+
+    dz[1] = z[3]
+    dz[2] = z[4]
+    dz[3] = (-p[5]*z[3] - p[6]*(2*z[3] - 2*z[4])/2 -p[3]*z[1] - p[4]*(2*z[1] - 2*z[2])/2)/p[1]
+    dz[4] = (-p[6]*(-2*z[3] + 2*z[4])/2 - p[4]*(-2*z[1] + 2*z[2])/2 + U)/p[2]
+end
+
+import DifferentialEquations
+tspan = (0.0,5)
+z0 = [1 2 0 0.]
+p = [1,1,20,10,.4,.2]
+prob = DifferentialEquations.ODEProblem(ode2MassSprings,z0,tspan,p)
+sol = DifferentialEquations.solve(prob);
+```
+The time response of x1 in the controlled system
+```julia
+plot(sol, vars = (0,1))
+```
+---
+The time response of x1 in the controlled system
+```julia
+plot(sol, vars = (0,2))
+```
+---
+
+
+### NOW im going to do the problem again in controller cononical form to see if I get the same K values
+```julia
+eigsA = LinearAlgebra.eigvals(A)
+OLCharEqn = Polynomials.poly(eigsA)
+OLCharEqnCoeffs = Polynomials.coeffs(OLCharEqn)
+
+Abar = [0 1 0 0;0 0 1 0;0 0 0 1;-OLCharEqnCoeffs[1:end-1]'] |> real
+Bbar = [0;0;0;1]
+
+e_cz = hcat(Bbar, Abar*Bbar, Abar^2*Bbar, Abar^3*Bbar)
+P = e_c/e_cz
+
+@vars K1 K2 K3 K4
+Kchecksymbols = [K1 K2 K3 K4]
+Matrix = Abar-Bbar*Kchecksymbols
+
+# p1 is the previously defined desired characteristic equation
+
+DesiredCoeffs = Polynomials.coeffs(p1) |> real
+zero3 = Matrix[4] + DesiredCoeffs[1]
+zero4 = Matrix[8] + DesiredCoeffs[2]
+zero5 = Matrix[12] + DesiredCoeffs[3]
+zero6 = Matrix[16] + DesiredCoeffs[4]
+Kvals = solve([zero3,zero4,zero5,zero6],[K1,K2,K3,K4])
+Kcheckz = oftype(zeros(1,4),Kchecksymbols.subs(Kvals))
+Kcheckx = Kcheckz/P
+```
+```julia
+LinearAlgebra.eigvals(Abar-Bbar*Kcheckx)
+A_z = Abar-Bbar*Kcheckz
+A_x = A-B*Kcheckx;
+
+LinearAlgebra.eigvals(A - B*Kcheckx)
+
+function odeCheck(dz,z,p,t)
+        #p = [M1,M2,K1,K2,C1,C2]
+
+    x0 = [0 0 0 0.]
+    r(t) = 1
+    x = z - x0
+    U = r(t) - LinearAlgebra.dot(Kcheckx,x)
+
+    dz[1] = z[3]
+    dz[2] = z[4]
+    dz[3] = (-p[5]*z[3] - p[6]*(2*z[3] - 2*z[4])/2 -p[3]*z[1] - p[4]*(2*z[1] - 2*z[2])/2)/p[1]
+    dz[4] = (-p[6]*(-2*z[3] + 2*z[4])/2 - p[4]*(-2*z[1] + 2*z[2])/2 + U)/p[2]
+
+end
+
+tspan = (0.0,5)
+z0 = [1 2 0 0.]
+p = [1,1,20,10,.4,.2]
+probCheck = DifferentialEquations.ODEProblem(odeCheck,z0,tspan,p)
+solCheck = DifferentialEquations.solve(probCheck);
+```
+A check on the time response of x1 in the controlled system
+```julia
+plot(solCheck, vars = (0,1))
+```
+---
+A check on the time response of x1 in the controlled system
+```julia
+plot(solCheck, vars = (0,2))
+```
+---
+OKAY thats good! The plots look the same as when I did this with Ackermans!!!
+
+#### Make Observer using Ackerman's formula
+```julia
+sO1 = 10*real(s1)+imag(s1)*1im
+sO2 = 10*real(s2)+imag(s2)*1im
+pO1 = Polynomials.poly([sO1,conj(sO1),sO2,conj(sO2)])
+
+LambdaObs = zeros(4,4)
+for i = 0:4
+        global LambdaObs += pO1.a[i+1]*A'^i
+end
+LambdaObs = real(LambdaObs)
+
+e_cObs = hcat(C', A'*C', A'^2*C', A'^3*C')
+L = (e_cObs\LambdaObs)[end,:]
+```
+check that the poles went where I wanted them to
+```julia
+LinearAlgebra.eigvals(A' - C'*L')
+```
+They did!
+
+### NOW to make an Observer in Controller cononical form
+
+First, I'll make the desired polynomial
+```julia
+sO1 = 10*real(s1)+imag(s1)*1im
+sO2 = 10*real(s2)+imag(s2)*1im
+pO1 = Polynomials.poly([sO1, conj(sO1), sO2, conj(sO2)  ])
+
+ObsA = LinearAlgebra.transpose(A)
+ObsB =  LinearAlgebra.transpose(C)
+e_cxObs =  hcat(ObsB, ObsA*ObsB, ObsA^2*ObsB, ObsA^3*ObsB)
+eigsObsA = LinearAlgebra.eigvals(ObsA)
+OLCharEqnObs = Polynomials.poly(eigsObsA)
+OLCharEqnCoeffsObs = Polynomials.coeffs(OLCharEqnObs)
+
+AbarObs = [0 1 0 0;0 0 1 0;0 0 0 1;-OLCharEqnCoeffsObs[1:end-1]'] |> real
+
+BbarObs = [0;0;0;1]
+
+e_czObs = hcat(BbarObs, AbarObs*BbarObs, AbarObs^2*BbarObs, AbarObs^3*BbarObs)
+PObs = e_cxObs/e_czObs
+
+@vars L1 L2 L3 L4
+L = [L1 L2 L3 L4]
+MatrixObs = AbarObs-BbarObs*L
+
+# p1 is the previously defined desired characteristic equation
+
+DesiredCoeffsObs = Polynomials.coeffs(pO1) |> real
+zero7 = MatrixObs[4] + DesiredCoeffsObs[1]
+zero8 = MatrixObs[8] + DesiredCoeffsObs[2]
+zero9 = MatrixObs[12] + DesiredCoeffsObs[3]
+zero10 = MatrixObs[16] + DesiredCoeffsObs[4]
+Lvals = solve([zero7,zero8,zero9,zero10],[L1,L2,L3,L4])
+Lcheckz = oftype(zeros(1,4),L.subs(Lvals))
+Lcheckx = Lcheckz*inv(PObs)
+```
+These are the same values as the first L.
+
+But we'll check them anyway
+```julia
+AbarObs - BbarObs*Lcheckz
+LinearAlgebra.eigvals(A'-C'*Lcheckx)
+```
+They went where I wanted them to go
+
+---
+Now, I'll test the response of the contolled and observed system:
+```julia
+function ode2MassSpringsObserver(dz,z,p,t)
+        #p = [M1,M2,K1,K2,C1,C2]
+
+        r(t) = 1
+        x = [z[1];z[2];z[3];z[4]]
+        xhat = [z[5];z[6];z[7];z[8]]
+        y = C*x
+        yhat = C*xhat
+        U = r(t) - LinearAlgebra.dot(K,xhat)
+
+        dz[1] = z[3]
+        dz[2] = z[4]
+        dz[3] = (-p[5]*z[3] - p[6]*(2*z[3] - 2*z[4])/2 -p[3]*z[1] - p[4]*(2*z[1] - 2*z[2])/2)/p[1]
+        dz[4] = (-p[6]*(-2*z[3] + 2*z[4])/2 - p[4]*(-2*z[1] + 2*z[2])/2 + U)/p[2]
+        dxhat = A*xhat + B*U + Lcheckx'*(y-yhat)
+
+        dz[5:8] = dxhat
+
+end
+
+
+tspan = (0.0,5)
+z0 = [1 2 0 0 0 0 0 0.]
+p = [1,1,20,10,.4,.2]
+prob = DifferentialEquations.ODEProblem(ode2MassSpringsObserver,z0,tspan,p)
+sol = DifferentialEquations.solve(prob);
+```
+First, I'll plot x1
+```julia
+plot(sol, vars = (0,1))
+```
+---
+Now, I'll plot the Observer's estimate of x1
+```julia
+plot(sol, vars = (0,5))
+```
+---
+Next, I'll plot x2
+```julia
+plot(sol, vars = (0,2))
+```
+---
+Now, I'll plot the Observer's estimate of x2
+```julia
+plot(sol, vars = (0,6))
+```
+---
+I'll plot the difference between the real time response of x1 and the observer's estimate of it
+```julia
+plot(sol.t,(sol[1,:]-sol[5,:]))
+    xlims!(0,.15)
+```
+---
+Finally, I'll plot the difference between the real time response of x2 and the observer's estimate of THAT
+```julia
+plot(sol.t,(sol[2,:]-sol[6,:]))
+    xlims!(0,.15)
+```

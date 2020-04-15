@@ -1,0 +1,125 @@
+---
+title: Computational Dynamics Homework5 Numerical Initial Value Problems
+---
+# Stablity
+## The Trapezoidal Rule
+
+```julia
+using SymPy
+using Plots
+import LinearAlgebra
+# f = xdot
+
+@syms x t lambda h
+x = SymFunction("x")(t)
+f(x,t) = lambda*x;
+```
+
+
+$x_(n+1) = x_(n) + h/2*(f(x_(n),t_(n))+f(x_(n+1),t_(n+1))$
+
+$x_(n+1) = x_(n) + h/2*(lambda*x_(n)+lambda*x_(n+1))$
+
+$x_(n+1)(1-lambda*h/2) = x_(n)(1+lambda*h/2)$
+
+$x_(n+1) = (1+lambda*h/2)/(1-lambda*h/2)x_(n)$
+
+$|\frac{1+lambda*h/2}{1-lambda*h/2}|<1$
+
+
+$so....$
+
+$1+lambda*h/2 < 1-lambda*h/2$
+
+$and$
+
+$1+lambda*h/2 > -1+lambda*h/2$
+
+---
+
+$0 < -lambda*h$
+
+$and$
+
+$2 > 0$
+
+```julia
+xmax = 10
+plot([0,-xmax,-xmax,0],[-xmax,-xmax,xmax,xmax],xlims = (-xmax,xmax),ylims = (-xmax,xmax),fill = true,label = "Stable Region")
+```
+## Runge Kutta 2
+
+$x_(n+1) = x_n + h*\frac{1}{2*α}f(t_n,x_n) + \frac{1}{2*α}f(t_n+α*h,x_n+α*h*f(t_n,x_n))$
+$but$
+$ f(t_n,x_n) = lambda*x_n$
+
+$x_(n+1) = x_n + \frac{h*lambda*x_n}{2*α} + \frac{1}{2*α}f(t_n+α*h,x_n+α*h*lambda*x_n)$
+
+$x_(n+1) = x_n + \frac{h*lambda*x_n}{2*α} + \frac{1}{2*α}f(t_n+α*h,x_n(1+α*h*lambda)$
+
+$x_(n+1) = x_n + \frac{h*lambda*x_n}{2*α} + \frac{lambda*x_n(1+α*h)}{2*α}$
+
+$x_(n+1) = x_n(1 + \frac{h*lambda}{2*α} + \frac{lambda+lambda*α*h)}{2*α})$
+
+$x_(n+1) = x_n(1 + h*lambda(\frac{h*lambda}{2}+1))$
+
+$so...$
+
+$|1 + h*lambda(\frac{h*lambda}{2}+1)| < 1$
+
+
+```julia
+@vars x_n t_n alpha hlambda
+k1 = f(x_n,t_n)
+k2 = f(x_n +alpha*h*k1, t_n + alpha*h)
+x_nPlus1 = x_n + h*((1-1/2/alpha)*k1+1/2/alpha*k2) |> simplify
+```
+
+```julia
+inequality(hlambda) = x_nPlus1 / x_n |> subs(h*lambda => hlambda)
+```
+populate the domain hlambda
+```julia
+function ComplexLinespace(resolution,x_ymax)
+  domainOf_h_lambda= fill(NaN+NaN*im,resolution*resolution,1)
+  SizeOfPlot = collect(-x_ymax:2*x_ymax/(resolution-1):x_ymax)
+  for i = 1:resolution
+    newVals = (SizeOfPlot .+ (SizeOfPlot[i])*im)'
+    indexlocale = collect((i-1)*resolution+1:(i-1)*resolution+resolution)'
+
+    domainOf_h_lambda = setindex!(domainOf_h_lambda,newVals,indexlocale)
+
+  end
+  domainOf_h_lambda = domainOf_h_lambda
+end
+resolution = 100
+x_ymax = 2.5
+h_lambda_Vals = ComplexLinespace(resolution,x_ymax)
+
+scatter([real(h_lambda_Vals)],[imag(h_lambda_Vals)],markercolor=[:red])
+```
+
+now we need to see if each point satifies stability
+```julia
+
+function StabilityTester(domain,inequality)
+  n = size(domain,1)
+  StablePoints = fill(NaN+NaN*im,n,1)
+  UnstablePoints = fill(NaN+NaN*im,n,1)
+  for i = 1:n
+    if LinearAlgebra.norm(inequality(domain[i]))>=1
+      #unstable
+      UnstablePoints[i] = domain[i]
+    else
+      StablePoints[i] = domain[i]
+    end
+  end
+  StablePoints = StablePoints
+end
+
+
+StablePoints = StabilityTester(h_lambda_Vals,inequality)
+
+scatter([real(StablePoints)],[imag(StablePoints)],markercolor=[:blue],label = "Stable Region",ylims = (-2.5,2.5),xlims=(-3.5,1.5))
+
+```
