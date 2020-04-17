@@ -17,15 +17,15 @@ function beuler(f, tf, h, x0; tol = 1e-4, iterMax = 500 )
         # x(i+1) = x(i) + h*f( x(i+1) )
 
         # Predict via forward Euler x[i+1]
-        y = x[i,:] + h*f( x[i,1], x[i,2] )
+        y = x[i,:]' + h*f( x[i,:] )
 
         flag = 0
         iter = 0
         while flag == 0
             iter += 1
-            y = x[i,:] + h*f(y[1], y[2])
+            y = x[i,:]' + h*f(y)
 
-            residual = norm( y - x[i,:] - h*f(y[1], y[2]))
+            residual = norm( y - x[i,:]' - h*f(y))
 
             if residual <= tol
                 flag = 1
@@ -35,7 +35,7 @@ function beuler(f, tf, h, x0; tol = 1e-4, iterMax = 500 )
             end
         end
 
-        x = vcat(x,y')
+        x = vcat(x,y)
 
     end
 
