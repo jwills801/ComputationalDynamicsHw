@@ -2,9 +2,10 @@
 title: HW 5 Part 2
 Author: Jackson Wills
 ---
-Files to include in Appendix: BackwardEuler.jl Adams_Bashforth2.jl GL_RK.jl
+Files to include in Appendix: BackwardEuler.jl Adams_Bashforth2.jl GL_RK.jl MyImplicitMidpoint.jl MyForwardEuler.jl
 
 
+**Simple Pendulum**
 First I need to solve the ODE and put it into first order form
 ```julia
 using Plots
@@ -38,14 +39,14 @@ Now to solve them.
 f(x) = [sin(x[2]) x[1]]
 h = .01
 x0 = [0 1.]
-tf = 5;
+tf = 10;
 ```
 
 ```julia
 include("BackwardEuler.jl")
-x,t = BackwardEuler.beuler(f,tf,h,x0)
-plot(t,x[:,1],label = "qdot")
-    plot!(t,x[:,2],label = "q")
+x_BE,t = BackwardEuler.beuler(f,tf,h,x0)
+plot(t,x_BE[:,1],label = "qdot")
+    plot!(t,x_BE[:,2],label = "q")
     xlabel!("Time")
     ylabel!("State")
     title!("Backwards Euler")
@@ -53,9 +54,9 @@ plot(t,x[:,1],label = "qdot")
 ---
 ```julia
 include("Adams_Bashforth2.jl")
-x,t = Adams_Bashforth2.ab2(f,tf,h,x0)
-plot(t,x[:,1],label = "qdot")
-    plot!(t,x[:,2],label = "q")
+x_AB,t = Adams_Bashforth2.ab2(f,tf,h,x0)
+plot(t,x_AB[:,1],label = "qdot")
+    plot!(t,x_AB[:,2],label = "q")
     xlabel!("Time")
     ylabel!("State")
     title!("Adams Bashforth")
@@ -63,10 +64,132 @@ plot(t,x[:,1],label = "qdot")
 ---
 ```julia
 include("GL_RK.jl")
-x,t = GL_RK.gl_rk(f,tf,h,x0)
-plot(t,x[:,1],label = "qdot")
-    plot!(t,x[:,2],label = "q")
+x_GL,t = GL_RK.gl_rk(f,tf,h,x0)
+plot(t,x_GL[:,1],label = "qdot")
+    plot!(t,x_GL[:,2],label = "q")
     xlabel!("Time")
     ylabel!("State")
     title!("Gauss Legendre Runge Kutta")
+```
+
+---
+
+Now, I'll see what happens to the Hamiltonian as the solutions integrate in time.
+```julia
+H_BE = x_BE[:,1].^2/2 + cos.(x_BE[:,2])
+H0 = x_BE[1,1].^2/2 + cos.(x_BE[1,2])
+
+H_AB = x_AB[:,1].^2/2 +cos.(x_AB[:,2])
+
+H_GL = x_GL[:,1].^2/2 +cos.(x_GL[:,2])
+
+plot(t,H_BE/H0,label = "Backward Euler",yticks = .85:0.05:1.05,)
+    plot!(t,H_AB/H0,label = "Adams Bashforth")
+    plot!(t,H_GL/H0,label = "Gauss Legendre Runge Kutta")
+    xlabel!("Time")
+    ylabel!("Normalized Hamiltonian")
+    title!("How The Hamiltonian Changes with Time if Step Size is .01")
+    ylims!((.85,1.05))
+
+```
+
+---
+
+AB2 was the easiest to implement for me becasue there were no implicit steps
+
+Now, I'll compare the computation times
+
+For Backwards Euler:
+```julia
+@elapsed BackwardEuler.beuler(f,tf,h,x0)
+```
+---
+For Adams Bashforth 2
+```julia
+@elapsed Adams_Bashforth2.ab2(f,tf,h,x0)
+```
+
+---
+
+For Gauss Legendre Runge Kutta
+
+```julia
+@elapsed GL_RK.gl_rk(f,tf,h,x0)
+```
+
+Gauss Legendre Runge Kutta took the longest
+
+---
+
+You asked us: Does the long term behavior of IRK method of (5.10) remain well behaved?
+
+And I think the answer is that it depends. It probably depends on the step size and the eigenvalues of the problem.
+
+So here, I integrated the above problem with IRK over a long time and with a fairly small step size.
+
+And the I'd say the long term behavior is pretty good!
+```julia
+tf_long = 200
+h_long = .01
+x_long,t = GL_RK.gl_rk(f,tf_long,h_long,x0)
+H_GL_long = x_long[:,1].^2/2 +cos.(x_long[:,2])
+plot(t,H_GL_long/H0)
+    xlabel!("Time")
+    ylabel!("Normalized Hamiltonian")
+    title!("Long Term Behavior of IRK")
+```
+
+
+**Now for The Euler Equations**
+```julia
+y0 = [cos(1.1) 0 sin(1.1)]
+
+I1 = 2
+I2 = 1
+I3 = 2/3
+
+
+a1 = (I2-I3)/I2/I3
+a2 = (I3-I1)/I3/I1
+a3 = (I1-I2)/I1/I2
+f(y) = [a1*y[2]*y[3] a2*y[3]*y[1] a3*y[1]*y[2]]
+h = .001
+tf = 11
+H0 = 1/2*(y0[1]^2/I1+y0[2]^2/I2+y0[3]^2/I3);
+```
+
+```julia
+include("MyForwardEuler.jl")
+y_FE,t = MyForwardEuler.feuler(f,tf,h,y0)
+H_FE = 1/2*(y_FE[:,1].^2/I1+y_FE[:,2].^2/I2+y_FE[:,3].^2/I3)
+plot3d(y_FE[:,1],y_FE[:,2],y_FE[:,3])
+    title!("Eulers Equations: Forward Euler")
+```
+---
+```julia
+
+include("MyImplicitMidpoint.jl")
+y_IM, t = MyImplicitMidpoint.my_implicit_mid(f,tf,h,y0)
+H_IM = 1/2*(y_IM[:,1].^2/I1+y_IM[:,2].^2/I2+y_IM[:,3].^2/I3)
+plot3d(y_IM[:,1],y_IM[:,2],y_IM[:,3])
+    title!("Eulers Equations: Implicit Midpoint")
+```
+---
+```julia
+include("GL_RK.jl")
+y_GL,ti = GL_RK.gl_rk(f,tf,h,y0)
+H_GL = 1/2*(y_GL[:,1].^2/I1+y_GL[:,2].^2/I2+y_GL[:,3].^2/I3)/H0
+plot3d(y_GL[:,1],y_GL[:,2],y_GL[:,3])
+    title!("Eulers Equations: Implicit Runge Kutta")
+```
+---
+The next plot, shows whether or not the Hamiltonian changes as the integrator moves forward.
+Only the IRK does not conserve the Hamiltonian.
+
+Which, admittedly, is strange, because for the simple pendulum I said that IRK conserved the hamiltonian in its long term behavior....
+```julia
+plot(t,H_FE/H0,label= "Forward Euler")
+    plot!(t,H_IM/H0,label = "Implicit Midpoint")
+    plot!(t,H_GL/H0,label = "Implicit Runge Kutta")
+    ylims!((.9,1.6))
 ```

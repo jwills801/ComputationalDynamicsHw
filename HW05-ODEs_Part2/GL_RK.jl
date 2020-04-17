@@ -20,8 +20,8 @@ function gl_rk(f,tf,h,x0)
   b1 = 1/2
   b2 = 1/2
 
-  k1_guess = [0 0.]
-  k2_guess = [0 0.]
+  k1_guess = zeros(1,length(x0))
+  k2_guess = zeros(1,length(x0))
   for i=1:n-1
     for j=1:500
       k1 = f(x[i,:]' + h*a11*k1_guess + h*a12*k2_guess)
