@@ -4,7 +4,7 @@ using LinearAlgebra
 
 export vRk
 
-function vRK(f,tf,x0;h0 = 1,tol = 1e-8)
+function vRK(f,tf,x0;h0 = 1.,tol = 1e-8)
 
     c1 = 1/2
     c2 = 3/4
@@ -34,7 +34,7 @@ function vRK(f,tf,x0;h0 = 1,tol = 1e-8)
     error_m1 = 100
     while flag == 0
         i += 1
-        for j= 1:50
+        for j= 1:500
             k1 = f(t[i],x[i,:]')
             k2 = f(t[i]+c1*h,x[i,:]'+h*k1*a1)
             k3 = f(t[i] + c2*h, x[i,:]' + h*k1*a21 + h*k2*a22)
@@ -49,17 +49,14 @@ function vRK(f,tf,x0;h0 = 1,tol = 1e-8)
 
 
             if error <= tol
-                t = vcat(t,t.+h)
-                h = .9*h*min(max(error/error_m1,.3),2)
+                t = vcat(t,t[i].+h)
+                h = .9*h*min(max(error_m1/error,.3),2)
                 x = vcat(x,xnext)
                 break
             else
                 h = h/2
             end #if error
-            if j == 49
-                println("did not converge")
-                break
-            end
+
 
             error_m1 = error
         end # j for loop
@@ -67,8 +64,9 @@ function vRK(f,tf,x0;h0 = 1,tol = 1e-8)
         if t[i] >= tf
             flag = 1
         end
-        if i >= 100
+        if i >= 50000
             flag = -1
+            error("Too many points")
         end
 
 

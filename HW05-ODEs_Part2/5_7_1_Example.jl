@@ -3,7 +3,7 @@ using DifferentialEquations
 
 f(t,x) = [4*exp.(.8*t)] - .5*x
 x0 = [2]
-tf = 2
+tf = 10
 tol = 1e-8
 
 
@@ -11,6 +11,7 @@ include("Adaptive_time_step_Runge_Kutta.jl")
 
 t,x = Adaptive_time_step_Runge_Kutta.vRK(f,tf,x0;tol = .1)
 plot(t,x[:,1])
+
 
 
 ##
@@ -36,12 +37,34 @@ k = 100
 kt = 100
 f_af(t,x) = [x[3] x[4] -k*x[1]/m -kt*x[2]/J]
 
-f_af(0,[1 2 3 4])
+tf = 5.
+x0 = [5 1 2 1.]
+include("Adaptive_time_step_Runge_Kutta.jl")
+t,x = Adaptive_time_step_Runge_Kutta.vRK(f_af,tf,x0)
+plot(t,x[:,1],label = "y",color = "green")
+    plot!(t,x[:,2],label = "theta",color = "red")
+    plot!(t,x[:,3],label = "ydot",color = "purple")
+    plot!(t,x[:,4],label = "thetadot",color = "orange")
+    title!("My ODE23")
 
+
+
+
+##
 function builtin!(dx,x,p,t)
-    p = k, m, kt, J
-    dx = [x[3]; x[4]; -k*x[1]/m; -kt*x[2]/J]
+    dx[1] = x[3]
+    dx[2] = x[4]
+    dx[3] = -100*x[1]/1
+    dx[4] = -100*x[2]/1
 end
 
-prob = ODEProblem(builtin!,u₀,tspan,M)
-sol = solve(prob)
+
+tspan = (0,tf)
+prob = ODEProblem(builtin!,x0',tspan)
+sol = solve(prob,BS3())
+plot(sol,vars=(0,1),label = "y",color = "green")
+    plot!(sol,vars=(0,2),label = "theta",color = "red")
+    plot!(sol,vars=(0,3),label = "ydot",color = "purple")
+    plot!(sol,vars=(0,4),label = "thetadot",color = "orange")
+    title!("Julia's version of ODE23")
+##
